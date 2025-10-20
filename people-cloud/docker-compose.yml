@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  node:
+    build: ./node
+    command: ["cargo", "run"]
+    volumes:
+      - ./node:/app
+    ports:
+      - "8787:8787"
+  dashboard:
+    image: python:3.11-slim
+    working_dir: /site
+    command: ["python", "-m", "http.server", "8080"]
+    volumes:
+      - ./dashboard:/site
+    ports:
+      - "8080:8080"

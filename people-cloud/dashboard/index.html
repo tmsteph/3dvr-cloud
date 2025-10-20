@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>people-cloud — Dashboard</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif; margin: 2rem; background: #0b1220; color: #e6edf6; }
+    .card { background: #121a2b; border: 1px solid #1f2a44; border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .col { flex: 1 1 320px; }
+    h1, h2 { margin: 0.5rem 0 1rem; }
+    input, button { padding: 0.5rem 0.75rem; border-radius: 10px; border: 1px solid #2b375a; background: #0f1729; color: #e6edf6; }
+    button { cursor: pointer; }
+    code { background: #0f1729; padding: 0.2rem 0.4rem; border-radius: 6px; }
+    .ok { color: #8dd39e; }
+    .bad { color: #ff8a8a; }
+    small { color: #9aa4bf; }
+  </style>
+  <!-- Gun.js from CDN for presence room (ok for prototype) -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+</head>
+<body>
+  <h1>people-cloud</h1>
+  <p><small>local prototype — node API expected at <code>http://127.0.0.1:8787</code></small></p>
+
+  <div class="row">
+    <div class="col card">
+      <h2>Node Health</h2>
+      <div id="health">Loading...</div>
+    </div>
+
+    <div class="col card">
+      <h2>Resources</h2>
+      <pre id="resources">Loading...</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Peer Discovery (Gun.js room)</h2>
+    <p><small>Peers broadcast ephemeral presence to <code>people-cloud/room</code>. This is *not* relaying content yet.</small></p>
+    <div class="row">
+      <input id="alias" placeholder="Your alias (optional)" />
+      <button id="join">Join Room</button>
+    </div>
+    <pre id="roomlog" style="margin-top:1rem; max-height: 260px; overflow:auto;"></pre>
+  </div>
+
+<script>
+const api = "http://127.0.0.1:8787";
+
+async function fetchJSON(path) {
+  const res = await fetch(api + path).catch(() => null);
+  if (!res || !res.ok) return null;
+  return res.json();
+}
+
+async function refresh() {
+  const health = await fetchJSON("/health");
+  const healthEl = document.getElementById("health");
+  if (health) {
+    healthEl.innerHTML = '<span class="ok">OK</span> uptime: ' + Math.round(health.uptime_seconds) + 's';
+  } else {
+    healthEl.innerHTML = '<span class="bad">Node not reachable.</span>';
+  }
+
+  const res = await fetchJSON("/resources");
+  const resEl = document.getElementById("resources");
+  resEl.textContent = res ? JSON.stringify(res, null, 2) : "Unavailable";
+}
+
+setInterval(refresh, 2000);
+refresh();
+
+// --- Gun.js presence room (simple demo) ---
+const roomLog = document.getElementById('roomlog');
+let alias = "";
+document.getElementById('join').onclick = () => {
+  alias = document.getElementById('alias').value || ("guest-" + Math.floor(Math.random()*10000));
+  const gun = Gun();
+  const room = gun.get('people-cloud').get('room');
+  const me = { alias, ts: Date.now() };
+
+  room.set(me);
+  room.on((data, id) => {
+    if (!data) return;
+    const line = `[${new Date(data.ts||Date.now()).toLocaleTimeString()}] ${data.alias||'peer'} joined`;
+    roomLog.textContent += line + "\n";
+    roomLog.scrollTop = roomLog.scrollHeight;
+  });
+};
+</script>
+</body>
+</html>
